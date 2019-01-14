@@ -1,15 +1,10 @@
 import java.io.*;
-import java.math.*;
-import java.security.*;
-import java.text.*;
 import java.util.*;
-import java.util.concurrent.*;
-import java.util.regex.*;
 
 public class QuickestWayUp {
     private static Integer MAX_ROLL = 6;
     private static Integer BOARD_LEN = 100;
-    private static Map<Integer, List<Integer>> adjencyMap = new HashMap<>();
+    private static Map<Integer, List<Integer>> adjMap = new HashMap<>();
     private static Map<Integer, Integer> listSnakes = new HashMap<>();
     private static Map<Integer, Integer> listLadders = new HashMap<>();
 
@@ -17,91 +12,159 @@ public class QuickestWayUp {
     static int computePath(int[][] ladders, int[][] snakes) {
         int N = 100;
 
-        for (int i = 0; i < ladders.length; i++) {
-            //g.addRoute(ladders[i][0]-1, ladders[i][1]-1);
-            listLadders.put(ladders[i][0] - 1, ladders[i][1] - 1);
-        }
-
-        for (int i = 0; i < snakes.length; i++) {
-            //g.addRoute(snakes[i][0]-1, snakes[i][1]-1);
-            listSnakes.put(snakes[i][0] - 1, snakes[i][1] - 1);
-        }
-
-        for (int step = 1; step <= 6; step++) {
-            for (int i = 0; i < N - step; i += step) {
-                //g.addRoute(i, i + step);
-            }
-        }
+        init();
         final Integer[] board = new Integer[BOARD_LEN];
         //Initialize board
         for (Integer i = 0; i < BOARD_LEN; ++i) {
             board[i] = i;
         }
 
-
         createAdjacencyList(board);
-        replace();
-        printAdjencyList();
 
-        Integer count = breathFirstSearch();
+        for (int i = 0; i < ladders.length; i++) {
+             listLadders.put(ladders[i][0] - 1, ladders[i][1] - 1);
+        }
+
+        for (int i = 0; i < snakes.length; i++) {
+             listSnakes.put(snakes[i][0] - 1, snakes[i][1] - 1);
+        }
+
+        replace();
+
+        Graph g = new Graph(BOARD_LEN);
+
+        for (int currentNode = 0; currentNode < BOARD_LEN; currentNode++) {
+            List<Integer> adjNodes = adjMap.get(currentNode);
+            for (Integer adjNode : adjNodes) {
+                g.addEdge(currentNode, adjNode);
+            }
+        }
+
+        Integer count = g.bfs(0);
 
         return count;
+    }
+
+    public static void init() {
+        for (Integer i = 0; i < BOARD_LEN; i++) {
+            adjMap.put(i, new ArrayList<>());
+        }
+        listLadders.clear();
+        listSnakes.clear();
     }
 
     private static void createAdjacencyList(Integer[] board) {
 
-        for (Integer i = 0; i < board.length; i++) {
-            for (Integer j = 0; j < 7; j++) {
-                if (i + j > 99)
-                    break;
-                if (adjencyMap.containsKey(board[i]))
-                    adjencyMap.get(board[i]).add(board[i + j]);
-                else
-                    adjencyMap.put(board[i], new ArrayList(board[i + j]));
+        for (int i = 0; i < BOARD_LEN; i++) {
+            for (int j = 1; j <= 6; j++) {
+                addDirectedEdge(i, i + j);
             }
         }
     }
 
-    private static void printAdjencyList() {
-        for (Integer i : adjencyMap.keySet()) {
-            System.out.println();
-            System.out.print("key: " + i + " values: ");
-            for (Integer temp : adjencyMap.get(i)) {
-                System.out.print(temp + " ");
-            }
+    public static void addDirectedEdge(int node, int adjNode) {
+        if (adjNode < BOARD_LEN) {
+            adjMap.get(node).add(adjNode);
         }
     }
 
     private static void replace() {
-        for (Integer t : adjencyMap.keySet()) {
-            List<Integer> temp = new ArrayList<Integer>();
-
-            for (Integer t1 : adjencyMap.get(t)) {
-                if (listLadders.containsKey(t1)) {
-                    temp.add(listLadders.get(t1));
-                } else if (listSnakes.containsKey(t1)) {
-                    temp.add(listSnakes.get(t1));
+        for (Integer node : adjMap.keySet()) {
+            List<Integer> replaceAdjNodes = new ArrayList<Integer>();
+            for (Integer adjNode : adjMap.get(node)) {
+                if (listLadders.containsKey(adjNode)) {
+                    replaceAdjNodes.add(listLadders.get(adjNode));
+                } else if (listSnakes.containsKey(adjNode)) {
+                    replaceAdjNodes.add(listSnakes.get(adjNode));
                 } else {
-                    temp.add(t1);
+                    replaceAdjNodes.add(adjNode);
                 }
             }
-            adjencyMap.put(t, temp);
+            adjMap.put(node, replaceAdjNodes);
         }
     }
 
-    private static Integer breathFirstSearch() {
-        int count = 0;
-        Integer i = 0;
-        while (i != 99) {
-            List<Integer> temp = adjencyMap.get(i);
-            Collections.sort(temp);
-            i = temp.get(temp.size() - 1);
-            count++;
-            if (i > 99) break;
-        }
-        return count;
-    }
+    public static class Graph {
+        List<List<Integer>> adjLst;
+        int size;
 
+        public Graph(int size) {
+            adjLst = new ArrayList<>();
+            this.size = size;
+            while (size-- > 0)//Initialize the adjancency list.
+                adjLst.add(new ArrayList<Integer>());
+        }
+
+        public void addEdge(int first, int second) {
+            adjLst.get(first).add(second);
+         }
+
+        Set<Integer> visited;
+
+        public Integer bfs(Integer node) {
+
+            if (node == null) {
+                return -1;
+            }
+
+            Queue<List<Integer>> queue = new LinkedList<>(); //initialize queue
+            visited = new HashSet<>();  //initialize visited log
+
+            //a collection to hold the path through which a node has been reached
+            //the node it self is the last element in that collection
+            List<Integer> pathToNode = new ArrayList<>();
+            pathToNode.add(node);
+
+            queue.add(pathToNode);
+
+            while (!queue.isEmpty()) {
+
+                pathToNode = queue.poll();
+                //get node (last element) from queue
+                node = pathToNode.get(pathToNode.size() - 1);
+
+                if (isSolved(node)) {
+                    //print path
+                    System.out.println(pathToNode);
+                    continue;
+                }
+
+                //loop over neighbors
+                for (Integer nextNode : getNeighbors(node)) {
+
+                    if (!isVisited(nextNode)) {
+                        //create a new collection representing the path to nextNode
+                        List<Integer> pathToNextNode = new ArrayList<>(pathToNode);
+                        pathToNextNode.add(nextNode);
+                        queue.add(pathToNextNode); //add collection to the queue
+                    }
+                }
+            }
+
+
+            return -1;
+        }
+
+        private List<Integer> getNeighbors(Integer node) {
+            return adjLst.get(node);
+        }
+
+        private boolean isSolved(Integer node) {
+            if (node == BOARD_LEN - 1) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        private boolean isVisited(Integer node) {
+            if (visited.contains(node)) {
+                return true;
+            }
+            visited.add(node);
+            return false;
+        }
+    }
 
     private static final Scanner scanner = new Scanner(System.in);
 
